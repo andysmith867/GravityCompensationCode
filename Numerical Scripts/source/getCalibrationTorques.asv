@@ -1,0 +1,49 @@
+function [right_hip_torque, right_knee_torque, right_ankle_torque] = getCalibrationTorques(canch)
+
+
+% Receive only the low level message
+% 53 is right leg, 54 is left leg
+% filterAllowOnly(canch, [54,55], 'Standard');
+
+% Send msg 82 to receive msg 100
+% start(canch)
+message = canMessage(85,false,8); 
+message.Data=(hex2dec(ndec2hex([3 0 0 0 0 0],8)))';
+transmit(canch,message)
+pause(0.01)
+rxMsg = receive(canch, Inf, 'OutputFormat', 'timetable'); % for write message and output will not be provided
+stop(canch)
+
+% Read the msg
+dato=cell2mat(rxMsg.Data);
+message_received_right = canMessage(500,false,8);
+message_received_right.Data=dato(1,:); % index 1 only if the filter is applied
+message_received_left = canMessage(500,false,8);
+message_received_left.Data=dato(2,:); % index 1 only if the filter is applied
+
+% Each byte is 8 bits. First byte is msg_id and is only of length 1 byte =
+% 8 bits (starts from 0 and 8 bits long). Second byte is msg_row = 1 byte = 8 bits (starts from 8 and 8 bits long). Third and fourth bytes
+% are combined to give the right hip value (starts from 16 and 16 bits
+% long). So to receive knee values you need to start from the 32nd bit and
+% read a length of 16 bits.
+
+% In jumps of 16 
+ right_hip= unpack(message_received_right,0,16,'LittleEndian','int32');
+ right_knee= unpack(message_received_right,16,16,'LittleEndian','int32');
+ right_ankle = unpack(message_received_right,32,16,'LittleEndian','int32');
+ left_hip= unpack(message_received_left,0,16,'LittleEndian','int32');
+ left_knee= unpack(message_received_left,16,16,'LittleEndian','int32');
+ left_ankle = unpack(message_received_left,32,16,'LittleEndian','int32');
+torques.right_hip_torque = double(right_hip)/100;
+torques.right_knee_torque = double(right_knee)/100;
+torques.right_ankle_torque = double(right_ankle )/ 100;
+
+torques.left_hip_torque = double(left_hip)/100;
+torques.left_knee_torque = double(left_knee)/100;
+torques.left_ankle_torque = double(left_ankle)/100;
+ %  left_ankle= unpack(message_received,40,16,'LittleEndian','int32')*0.01;
+
+% Display the msg
+ disp(['Torques observed are:' newline '    Right Hip =' num2str(right_hip_torque) newline '    Right Knee =' num2str(right_knee_torque) newline '    Right Ankle =' num2str(right_ankle_torque) ...
+     newline '    Left Hip = ' num2str(left_hip_torque) newline '    Left Knee = ' num2str(left_knee_torque) newline '    Left Ankle = ' num2str(left_ankle_torque)])
+end
